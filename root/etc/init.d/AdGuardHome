@@ -13,7 +13,8 @@ CRON_FILE=/etc/crontabs/root
 [ ! -f "/usr/share/AdGuardHome/links.txt" ] && touch /usr/share/AdGuardHome/links.txt
 EXTRA_COMMANDS="do_redirect testbackup test_crontab force_reload isrunning"
 
-
+chmod +x /usr/share/AdGuardHome/*.sh
+chmod +x /usr/libexec/rpcd/luci.adguardhome
 
 
 set_forward_dnsmasq()
