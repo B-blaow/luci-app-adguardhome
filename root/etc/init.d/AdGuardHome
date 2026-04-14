@@ -1,18 +1,21 @@
 #!/bin/sh /etc/rc.common
 
 USE_PROCD=1
-
 START=95
 STOP=01
-
 CONFIGURATION=AdGuardHome
 CRON_FILE=/etc/crontabs/root
+
+[ ! -d "/etc/crontabs" ] && mkdir -p /etc/crontabs
+[ ! -f "$CRON_FILE" ] && touch "$CRON_FILE"
+[ ! -f "/etc/AdGuardHome.yaml" ] && touch /etc/AdGuardHome.yaml
+[ ! -d "/usr/share/AdGuardHome" ] && mkdir -p /usr/share/AdGuardHome
+[ ! -f "/usr/share/AdGuardHome/links.txt" ] && touch /usr/share/AdGuardHome/links.txt
 EXTRA_COMMANDS="do_redirect testbackup test_crontab force_reload isrunning"
-EXTRA_HELP="        do_redirect 0 or 1\
-        testbackup backup or restore\
-		test_crontab
-		force_reload
-		isrunning"
+
+
+
+
 set_forward_dnsmasq()
 {
 	local PORT="$1"
@@ -228,6 +231,14 @@ _do_redirect()
 		AdGuardHome_PORT="0"
 	fi
 	config_get "redirect" "$section" "redirect" "none"
+
+    if [ "$redirect" = "dnsmasq-upstream" ] && [ "$AdGuardHome_PORT" = "53" ]; then
+         AdGuardHome_PORT="1745"
+         config_editor "dns.port" "$AdGuardHome_PORT" "$configpath"
+         logger -t AdGuardHome "dnsmasq-upstream 模式：自动将 AdGuardHome dns.port 改为 ${AdGuardHome_PORT} 以避免与 dnsmasq 冲突"
+         echo "AdGuardHome port changed to ${AdGuardHome_PORT} (dnsmasq-upstream mode)"
+    fi
+
 	config_get "old_redirect" "$section" "old_redirect" "none"
 	config_get "old_port" "$section" "old_port" "0"
 	config_get "old_enabled" "$section" "old_enabled" "0"
@@ -311,28 +322,61 @@ get_filesystem()
     print(result);}'
 }
 
+
+
+
+
 config_editor()
 {
-	awk -v yaml="$1" -v value="$2" -v file="$3" -v ro="$4" '
-	BEGIN{split(yaml,part,"\.");s="";i=1;l=length(part);}
-    {
-        if (match($0,s""part[i]":"))
-        {
-            if (i==l)
-            {
-                split($0,t,": ");
-				if (ro==""){
-				system("sed -i '\''"FNR"c \\"t[1]": "value"'\'' "file);
-				}else{
-				print(t[2]);
-				}
-				exit;
-            }
-            s=s"[- ]{2}";
-            i++;
-        }
-    }' $3
+    local yaml="$1" value="$2" file="$3" ro="${4:-}"
+
+
+    [ ! -f "$file" ] && return 0
+    [ ! -s "$file" ] && return 0         
+    ! grep -q '^dns:' "$file" 2>/dev/null && return 0
+
+    case "$yaml" in
+        dns.port)
+            if [ "$ro" = "1" ]; then
+                
+                sed -n '/^dns:/,/^[^ ]/{ /^[[:space:]]*port:[[:space:]]/ { s/^[[:space:]]*port:[[:space:]]*//; s/[[:space:]#].*//; p; q } }' "$file"
+                return $?
+            fi
+
+            
+            sed -i '/^dns:/,/^[^ ]/{
+                /^[[:space:]]*port:[[:space:]]/{
+                    s/^\([[:space:]]*port:[[:space:]]*\).*/\1'"$value"'/
+                }
+            }' "$file" 2>/dev/null
+
+           
+            if ! grep -q '^[[:space:]]*port:' "$file" 2>/dev/null; then
+                sed -i '/^dns:/,/^[^ ]/{
+                    /^[[:space:]]*bind_hosts:/a\  port: '"$value"'
+                }' "$file" 2>/dev/null
+            fi
+            ;;
+
+        users.password)
+            if [ "$ro" = "1" ]; then
+                sed -n '/^users:/,/^[^ ]/{ /^[[:space:]]*-.*password:[[:space:]]/ { s/.*password:[[:space:]]*//; s/[[:space:]#].*//; p; q } }' "$file"
+                return $?
+            fi
+            sed -i '/^users:/,/^[^ ]/{
+                /^[[:space:]]*-.*password:[[:space:]]/{
+                    s/^\([[:space:]]*\).*password:[[:space:]]*.*/\1password: '"$value"'/
+                }
+            }' "$file" 2>/dev/null
+            ;;
+
+        *)
+            echo "不支持的 key: $yaml" >&2
+            ;;
+    esac
 }
+
+
 
 boot_service() {
 	rm /var/run/AdGserverdis >/dev/null 2>&1
@@ -390,6 +434,7 @@ backup() {
 		done
 	done
 }
+
 start_service() {
 	# Reading config
 	rm /var/run/AdGserverdis >/dev/null 2>&1
