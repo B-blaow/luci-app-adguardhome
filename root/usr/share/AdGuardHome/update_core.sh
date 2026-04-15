@@ -36,10 +36,10 @@ check_if_already_running() {
 check_wgetcurl() {
     if command -v curl >/dev/null 2>&1; then
         # -s: 静默模式, -L: 跟随重定向, -S: 显示必要错误
-        downloader="curl -L -k -s -S --retry 2 --connect-timeout 20 --max-time 300 -o"
+        downloader="curl -L -S --retry 2 --connect-timeout 20 --max-time 300 -o"  
     elif command -v wget-ssl >/dev/null 2>&1; then
         # -q: 静默模式
-        downloader="wget-ssl --no-check-certificate -q -t 2 -T 20 -O"
+        downloader="wget-ssl -q -t 2 -T 20 -O"
     else
         downloader="wget --no-check-certificate -q -t 2 -T 20 -O"
     fi
