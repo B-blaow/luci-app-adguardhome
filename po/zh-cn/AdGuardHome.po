@@ -247,11 +247,8 @@ msgstr "重新载入配置"
 msgid "WARNING!!! no bin found apply config will not be test"
 msgstr "警告！！！未找到执行文件，提交配置将不会进行校验"
 #unused
-msgid "Change browser management username"
-msgstr "改变网页登录用户名"
 
-msgid "Username"
-msgstr "用户名"
+
 
 msgid "Check Config"
 msgstr "检查配置"
@@ -264,3 +261,86 @@ msgstr "系统升级时保留数据"
 
 msgid "Boot delay until network ok"
 msgstr "开机时直到网络准备好再启动"
+msgid "Open Web Interface"
+msgstr "打开管理网页"
+
+msgid "Current Core Version:"
+msgstr "当前核心版本："
+
+msgid "Unknown"
+msgstr "未知"
+
+msgid "Update output log"
+msgstr "更新输出日志"
+
+msgid "Update log will appear here after clicking update."
+msgstr "点击更新后将在此处显示更新日志。"
+
+msgid "Checking update log..."
+msgstr "正在检查更新日志..."
+
+msgid "Real-time log output refreshes every 5 seconds."
+msgstr "运行日志每5秒自动刷新。"
+
+msgid "YAML editor with syntax highlighting."
+msgstr "支持语法高亮的YAML编辑器。"
+
+msgid "CodeMirror not found, fallback to plain textarea."
+msgstr "未找到CodeMirror，已回退为普通文本框。"
+
+msgid "Reload config"
+msgstr "重新加载配置"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Redirect mode"
+msgstr "重定向模式"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "Runtime Log"
+msgstr "运行日志"
+
+msgid "Manual Config Editor"
+msgstr "手动配置编辑器"
+
+msgid "Save config"
+msgstr "保存配置"
+
+msgid "Plain password"
+msgstr "明文密码"
+
+msgid "Bcrypt hash output"
+msgstr "Bcrypt 哈希输出"
+
+msgid "Calculate Bcrypt hash"
+msgstr "计算 Bcrypt 哈希"
+
+msgid "Save password hash"
+msgstr "保存密码哈希"
+
+msgid "Use plain password, calculate Bcrypt hash, then save."
+msgstr "输入明文密码，先计算 Bcrypt 哈希，再保存。"
+
+msgid "Plain password is empty."
+msgstr "明文密码为空。"
+
+msgid "Bcrypt hash generated."
+msgstr "Bcrypt 哈希已生成。"
+
+msgid "Failed to load twin-bcrypt.min.js"
+msgstr "加载 twin-bcrypt.min.js 失败"
+
+msgid "Please calculate hash first."
+msgstr "请先计算哈希。"
+
+msgid "Password hash saved."
+msgstr "密码哈希已保存。"
+
+msgid "Reverse output"
+msgstr "逆序输出"
+
+msgid "Download log"
+msgstr "下载日志"

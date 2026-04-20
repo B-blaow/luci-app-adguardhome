@@ -1,22 +1,24 @@
 #!/bin/sh /etc/rc.common
 
 USE_PROCD=1
+
 START=95
 STOP=01
+
 CONFIGURATION=AdGuardHome
 CRON_FILE=/etc/crontabs/root
-
-[ ! -d "/etc/crontabs" ] && mkdir -p /etc/crontabs
-[ ! -f "$CRON_FILE" ] && touch "$CRON_FILE"
-[ ! -f "/etc/AdGuardHome.yaml" ] && touch /etc/AdGuardHome.yaml
-[ ! -d "/usr/share/AdGuardHome" ] && mkdir -p /usr/share/AdGuardHome
-[ ! -f "/usr/share/AdGuardHome/links.txt" ] && touch /usr/share/AdGuardHome/links.txt
 EXTRA_COMMANDS="do_redirect testbackup test_crontab force_reload isrunning"
+EXTRA_HELP="        do_redirect 0 or 1\
+        testbackup backup or restore\
+		test_crontab
+		force_reload
+		isrunning"
 
-chmod +x /usr/share/AdGuardHome/*.sh
-chmod +x /usr/libexec/rpcd/luci.adguardhome
-
-
+ensure_cron_file() {
+	local cron_dir="${CRON_FILE%/*}"
+	[ -d "$cron_dir" ] || mkdir -p "$cron_dir"
+	[ -f "$CRON_FILE" ] || touch "$CRON_FILE"
+}
 set_forward_dnsmasq()
 {
 	local PORT="$1"
@@ -60,69 +62,58 @@ stop_forward_dnsmasq()
 	/etc/init.d/dnsmasq restart
 }
 
-set_iptable()
+set_firewall_redirect()
 {
 	local ipv6_server=$1
 	local tcp_server=$2
 	uci -q batch <<-EOF >/dev/null 2>&1
-  delete firewall.AdGuardHome
-	set firewall.AdGuardHome=include
-	set firewall.AdGuardHome.type=script
-	set firewall.AdGuardHome.path=/usr/share/AdGuardHome/firewall.start
-	set firewall.AdGuardHome.reload=1
+	delete firewall.AdGuardHome
+	delete firewall.AdGuardHome_dns4
+	delete firewall.AdGuardHome_dns6
+	set firewall.AdGuardHome_dns4=redirect
+	set firewall.AdGuardHome_dns4.name='AdGuardHome DNS redirect (IPv4)'
+	set firewall.AdGuardHome_dns4.src='lan'
+	set firewall.AdGuardHome_dns4.proto='udp'
+	set firewall.AdGuardHome_dns4.src_dport='53'
+	set firewall.AdGuardHome_dns4.dest_port='$AdGuardHome_PORT'
+	set firewall.AdGuardHome_dns4.target='DNAT'
+	set firewall.AdGuardHome_dns4.family='ipv4'
+	set firewall.AdGuardHome_dns4.enabled='1'
 	commit firewall
 EOF
-
-	IPS="`ifconfig | grep "inet addr" | grep -v ":127" | grep "Bcast" | awk '{print $2}' | awk -F : '{print $2}'`"
-	for IP in $IPS
-	do
-		if [ "$tcp_server" == "1" ]; then
-			iptables -t nat -A PREROUTING -p tcp -d $IP --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT >/dev/null 2>&1
-		fi
-		iptables -t nat -A PREROUTING -p udp -d $IP --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT >/dev/null 2>&1
-	done
+	[ "$tcp_server" = "1" ] && uci set firewall.AdGuardHome_dns4.proto='tcp udp'
 
 	if [ "$ipv6_server" == 0 ]; then
+		/etc/init.d/firewall restart >/dev/null 2>&1
 		return
 	fi
+	uci -q batch <<-EOF >/dev/null 2>&1
+	set firewall.AdGuardHome_dns6=redirect
+	set firewall.AdGuardHome_dns6.name='AdGuardHome DNS redirect (IPv6)'
+	set firewall.AdGuardHome_dns6.src='lan'
+	set firewall.AdGuardHome_dns6.proto='udp'
+	set firewall.AdGuardHome_dns6.src_dport='53'
+	set firewall.AdGuardHome_dns6.dest_port='$AdGuardHome_PORT'
+	set firewall.AdGuardHome_dns6.target='DNAT'
+	set firewall.AdGuardHome_dns6.family='ipv6'
+	set firewall.AdGuardHome_dns6.enabled='1'
+	commit firewall
+EOF
+	[ "$tcp_server" = "1" ] && uci set firewall.AdGuardHome_dns6.proto='tcp udp'
+	uci commit firewall
 
-	IPS="`ifconfig | grep "inet6 addr" | grep -v " fe80::" | grep -v " ::1" | grep "Global" | awk '{print $3}'`"
-	for IP in $IPS
-	do
-		if [ "$tcp_server" == "1" ]; then
-			ip6tables -t nat -A PREROUTING -p tcp -d $IP --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT >/dev/null 2>&1
-		fi
-		ip6tables -t nat -A PREROUTING -p udp -d $IP --dport 53 -j REDIRECT --to-ports $AdGuardHome_PORT >/dev/null 2>&1
-	done
-
+	/etc/init.d/firewall restart >/dev/null 2>&1
 }
 
-clear_iptable()
+clear_firewall_redirect()
 {
 	uci -q batch <<-EOF >/dev/null 2>&1
-  delete firewall.AdGuardHome
+	delete firewall.AdGuardHome
+	delete firewall.AdGuardHome_dns4
+	delete firewall.AdGuardHome_dns6
 	commit firewall
 EOF
-	local OLD_PORT="$1"
-	local ipv6_server=$2
-	IPS="`ifconfig | grep "inet addr" | grep -v ":127" | grep "Bcast" | awk '{print $2}' | awk -F : '{print $2}'`"
-	for IP in $IPS
-	do
-		iptables -t nat -D PREROUTING -p udp -d $IP --dport 53 -j REDIRECT --to-ports $OLD_PORT >/dev/null 2>&1
-		iptables -t nat -D PREROUTING -p tcp -d $IP --dport 53 -j REDIRECT --to-ports $OLD_PORT >/dev/null 2>&1
-	done
-
-	if [ "$ipv6_server" == 0 ]; then
-		return
-	fi
-	echo "warn ip6tables nat mod is needed"
-	IPS="`ifconfig | grep "inet6 addr" | grep -v " fe80::" | grep -v " ::1" | grep "Global" | awk '{print $3}'`"
-	for IP in $IPS
-	do
-		ip6tables -t nat -D PREROUTING -p udp -d $IP --dport 53 -j REDIRECT --to-ports $OLD_PORT >/dev/null 2>&1
-		ip6tables -t nat -D PREROUTING -p tcp -d $IP --dport 53 -j REDIRECT --to-ports $OLD_PORT >/dev/null 2>&1
-	done
-
+	/etc/init.d/firewall restart >/dev/null 2>&1
 }
 
 service_triggers() {
@@ -172,6 +163,7 @@ get_tz()
 
 rm_port53()
 {
+	[ -f "$configpath" ] || return
 	local AdGuardHome_PORT=$(config_editor "dns.port" "" "$configpath" "1")
 	dnsmasq_port=$(uci get dhcp.@dnsmasq[0].port 2>/dev/null)
 	if [ -z "$dnsmasq_port" ]; then
@@ -192,6 +184,7 @@ rm_port53()
 
 use_port53()
 {
+	[ -f "$configpath" ] || return
 	local AdGuardHome_PORT=$(config_editor "dns.port" "" "$configpath" "1")
 	dnsmasq_port=$(uci get dhcp.@dnsmasq[0].port 2>/dev/null)
 	if [ -z "$dnsmasq_port" ]; then
@@ -227,19 +220,15 @@ _do_redirect()
 		echo -n "0">/var/run/AdGredir
 	fi
 	config_get configpath $CONFIGURATION configpath "/etc/AdGuardHome.yaml"
-	AdGuardHome_PORT=$(config_editor "dns.port" "" "$configpath" "1")
+	if [ -f "$configpath" ]; then
+		AdGuardHome_PORT=$(config_editor "dns.port" "" "$configpath" "1")
+	else
+		AdGuardHome_PORT="0"
+	fi
 	if [ -z "$AdGuardHome_PORT" ]; then
 		AdGuardHome_PORT="0"
 	fi
 	config_get "redirect" "$section" "redirect" "none"
-
-    if [ "$redirect" = "dnsmasq-upstream" ] && [ "$AdGuardHome_PORT" = "53" ]; then
-         AdGuardHome_PORT="1745"
-         config_editor "dns.port" "$AdGuardHome_PORT" "$configpath"
-         logger -t AdGuardHome "dnsmasq-upstream 模式：自动将 AdGuardHome dns.port 改为 ${AdGuardHome_PORT} 以避免与 dnsmasq 冲突"
-         echo "AdGuardHome port changed to ${AdGuardHome_PORT} (dnsmasq-upstream mode)"
-    fi
-
 	config_get "old_redirect" "$section" "old_redirect" "none"
 	config_get "old_port" "$section" "old_port" "0"
 	config_get "old_enabled" "$section" "old_enabled" "0"
@@ -251,7 +240,7 @@ _do_redirect()
 	if [ "$old_redirect" != "$redirect" ] || [ "$old_port" != "$AdGuardHome_PORT" ] || [ "$old_enabled" = "1" -a "$enabled" = "0" ]; then
 		if [ "$old_redirect" != "none" ]; then
 			if [  "$old_redirect" == "redirect" -a "$old_port" != "0" ]; then
-				clear_iptable "$old_port" "$ipv6_server"
+				clear_firewall_redirect "$old_port" "$ipv6_server"
 			elif [ "$old_redirect" == "dnsmasq-upstream" ]; then
 				stop_forward_dnsmasq "$old_port"
 			elif [ "$old_redirect" == "exchange" ]; then
@@ -260,7 +249,7 @@ _do_redirect()
 		fi
 	elif [ "$old_enabled" = "1" -a "$enabled" = "1" ]; then
 		if [  "$old_redirect" == "redirect" -a "$old_port" != "0" ]; then
-			clear_iptable "$old_port" "$ipv6_server"
+			clear_firewall_redirect "$old_port" "$ipv6_server"
 		fi
 	fi
 	uci delete AdGuardHome.@AdGuardHome[0].old_redirect 2>/dev/null
@@ -275,7 +264,7 @@ _do_redirect()
 		return 1
 	fi
 	if [ "$redirect" = "redirect" ]; then
-		set_iptable $ipv6_server $tcp_server
+		set_firewall_redirect $ipv6_server $tcp_server
 	elif [ "$redirect" = "dnsmasq-upstream" ]; then
 		set_forward_dnsmasq "$AdGuardHome_PORT"
 	elif [ "$redirect" == "exchange" -a "$(uci get dhcp.@dnsmasq[0].port 2>/dev/null)" == "53" ]; then
@@ -323,61 +312,65 @@ get_filesystem()
     print(result);}'
 }
 
-
-
-
-
 config_editor()
 {
-    local yaml="$1" value="$2" file="$3" ro="${4:-}"
+	local yaml="$1"
+	local value="$2"
+	local file="$3"
+	local ro="$4"
+	local tmpfile
+	[ -f "$file" ] || return 1
 
+	if [ -n "$ro" ]; then
+		awk -v yaml="$yaml" '
+		BEGIN{
+			split(yaml,part,".");
+			s="";
+			i=1;
+			l=length(part);
+		}
+		{
+			if (match($0, s part[i] ":[[:space:]]*")) {
+				if (i==l) {
+					sub("^[^:]*:[[:space:]]*", "", $0);
+					print $0;
+					exit;
+				}
+				s=s"[- ]{2}";
+				i++;
+			}
+		}' "$file"
+		return $?
+	fi
 
-    [ ! -f "$file" ] && return 0
-    [ ! -s "$file" ] && return 0         
-    ! grep -q '^dns:' "$file" 2>/dev/null && return 0
-
-    case "$yaml" in
-        dns.port)
-            if [ "$ro" = "1" ]; then
-                
-                sed -n '/^dns:/,/^[^ ]/{ /^[[:space:]]*port:[[:space:]]/ { s/^[[:space:]]*port:[[:space:]]*//; s/[[:space:]#].*//; p; q } }' "$file"
-                return $?
-            fi
-
-            
-            sed -i '/^dns:/,/^[^ ]/{
-                /^[[:space:]]*port:[[:space:]]/{
-                    s/^\([[:space:]]*port:[[:space:]]*\).*/\1'"$value"'/
-                }
-            }' "$file" 2>/dev/null
-
-           
-            if ! grep -q '^[[:space:]]*port:' "$file" 2>/dev/null; then
-                sed -i '/^dns:/,/^[^ ]/{
-                    /^[[:space:]]*bind_hosts:/a\  port: '"$value"'
-                }' "$file" 2>/dev/null
-            fi
-            ;;
-
-        users.password)
-            if [ "$ro" = "1" ]; then
-                sed -n '/^users:/,/^[^ ]/{ /^[[:space:]]*-.*password:[[:space:]]/ { s/.*password:[[:space:]]*//; s/[[:space:]#].*//; p; q } }' "$file"
-                return $?
-            fi
-            sed -i '/^users:/,/^[^ ]/{
-                /^[[:space:]]*-.*password:[[:space:]]/{
-                    s/^\([[:space:]]*\).*password:[[:space:]]*.*/\1password: '"$value"'/
-                }
-            }' "$file" 2>/dev/null
-            ;;
-
-        *)
-            echo "不支持的 key: $yaml" >&2
-            ;;
-    esac
+	tmpfile="/tmp/AdGuardHome_cfg.$$"
+	awk -v yaml="$yaml" -v value="$value" '
+	BEGIN{
+		split(yaml,part,".");
+		s="";
+		i=1;
+		l=length(part);
+		done=0;
+	}
+	{
+		line=$0;
+		if (!done && match(line, s part[i] ":[[:space:]]*")) {
+			if (i==l) {
+				split(line, t, ":");
+				line=t[1] ": " value;
+				done=1;
+			} else {
+				s=s"[- ]{2}";
+				i++;
+			}
+		}
+		print line;
+	}' "$file" > "$tmpfile" || {
+		rm -f "$tmpfile"
+		return 1
+	}
+	mv -f "$tmpfile" "$file"
 }
-
-
 
 boot_service() {
 	rm /var/run/AdGserverdis >/dev/null 2>&1
@@ -435,7 +428,6 @@ backup() {
 		done
 	done
 }
-
 start_service() {
 	# Reading config
 	rm /var/run/AdGserverdis >/dev/null 2>&1
@@ -586,6 +578,7 @@ config_load "${CONFIGURATION}"
 do_crontab
 }
 do_crontab(){
+	ensure_cron_file
 	config_get_bool enabled $CONFIGURATION enabled 0
 	config_get crontab $CONFIGURATION crontab ""
 	local findstr default cronenable replace commit
@@ -634,6 +627,7 @@ crontab_editor(){
 	#cronenable=
 	#replace="${last//\//\\/}/${now//\//\\/}"
 	#output:cronreload:if >1 please /etc/init.d/cron restart manual
+	ensure_cron_file
 	local testline reload
 	local line="$(grep "$findstr" $CRON_FILE)"
 	[ -n "$replace" ] && [ -n "$line" ] && eval testline="\${line//$replace}" && [ "$testline" != "$line" ] && line="$testline" && reload="1" && replace="" 

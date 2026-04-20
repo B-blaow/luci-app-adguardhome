@@ -1,33 +1,26 @@
 {
-  "luci-app-adguardhome": {
-    "description": "Grant access to LuCI app AdGuardHome",
-    "read": {
-      "uci": [ "AdGuardHome" ],
-      "file": [
-        "/etc/AdGuardHome.yaml",
-        "/usr/share/AdGuardHome/*",
-        "/var/log/AdGuardHome.log",
-        "/tmp/AdH_update.log",
-        "/tmp/AdGuardHome_update.log",
-        "/tmp/AdGuardHome.log"
-      ],
-      "ubus": {
-        "service": [ "list" ],
-        "luci.adguardhome": [ "check_version", "get_links" ]
-      }
-    },
-    "write": {
-      "uci": [ "AdGuardHome" ],
-      "file": [
-        "/etc/AdGuardHome.yaml",
-        "/usr/share/AdGuardHome/links.txt",
-        "/tmp/AdH_update.log",
-        "/tmp/AdGuardHome_update.log",
-        "/tmp/AdGuardHome.log"
-      ],
-      "ubus": {
-        "luci.adguardhome": [ "update_core", "set_links" ]
-      }
-    }
-  }
+	"luci-app-adguardhome": {
+		"description": "Grant access to luci-app-adguardhome runtime helpers",
+		"read": {
+			"uci": [ "AdGuardHome" ],
+			"file": {
+				"/usr/share/AdGuardHome/links.txt": [ "read" ],
+				"/tmp/AdGuardHome_update.log": [ "read" ],
+				"/tmp/AdGuardHometmpconfig.yaml": [ "read" ],
+				"/etc/AdGuardHome.yaml": [ "read" ]
+			}
+		},
+		"write": {
+			"uci": [ "AdGuardHome", "dhcp", "firewall" ],
+			"file": {
+				"/usr/libexec/AdGuardHome/luci-helper.sh": [ "exec" ],
+				"/etc/init.d/AdGuardHome": [ "exec" ],
+				"/usr/share/AdGuardHome/gfw2adg.sh": [ "exec" ],
+				"/bin/sh": [ "exec" ],
+				"/usr/share/AdGuardHome/links.txt": [ "write" ],
+				"/tmp/AdGuardHometmpconfig.yaml": [ "write" ],
+				"/etc/AdGuardHome.yaml": [ "write" ]
+			}
+		}
+	}
 }

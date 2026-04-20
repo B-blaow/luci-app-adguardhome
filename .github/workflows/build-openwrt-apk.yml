@@ -1,4 +1,4 @@
-name: Build OpenWrt x86_64 APK
+name: Build OpenWrt luci-app-adguardhome APK
 
 permissions:
   contents: write
@@ -8,16 +8,17 @@ on:
   push:
     branches:
       - main
+      - v2
       - master
     paths:
-      - '.github/workflows/build-openwrt-x86-64-apk.yml'
+      - '.github/workflows/build-openwrt-apk.yml'
       - 'Makefile'
       - 'luasrc/**'
       - 'po/**'
       - 'root/**'
   pull_request:
     paths:
-      - '.github/workflows/build-openwrt-x86-64-apk.yml'
+      - '.github/workflows/build-openwrt-apk.yml'
       - 'Makefile'
       - 'luasrc/**'
       - 'po/**'
@@ -35,14 +36,12 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-        
-        
-        
+
       - name: Fix script permissions
         run: |
-          chmod +x root/etc/init.d/AdGuardHome
-          chmod +x root/usr/share/AdGuardHome/*.sh
-          chmod +x root/usr/libexec/rpcd/luci.adguardhome
+          #chmod +x root/etc/init.d/AdGuardHome
+          #chmod +x root/usr/share/AdGuardHome/*.sh
+          #chmod +x root/usr/libexec/rpcd/luci.adguardhome
 
 
       - name: Set commit id
@@ -153,7 +152,6 @@ jobs:
           make package/luci-app-adguardhome/compile V=s -j"$(nproc)"
 
 
-
       - name: Collect luci-app-adguardhome APK artifacts
         run: |
           set -euo pipefail
@@ -167,7 +165,7 @@ jobs:
           set -euo pipefail
           test -n "$(find artifacts -type f -name 'luci-app-adguardhome-*.apk')"
 
-      
+
 
       - name: Create tag for release
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
