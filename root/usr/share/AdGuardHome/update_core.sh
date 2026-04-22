@@ -52,8 +52,8 @@ detect_arch() {
 }
 
 check_wgetcurl(){
-	which curl && downloader="curl -L -k --retry 2 --connect-timeout 20 -o" && return
-	which wget-ssl && downloader="wget-ssl --no-check-certificate -t 2 -T 20 -O" && return
+	which curl && downloader="curl -fL -k --retry 2 --connect-timeout 20 -o" && return
+	which wget-ssl && downloader="wget-ssl -t 2 -T 20 -O" && return
 	[ -z "$1" ] && pkg_update || (echo error package update && EXIT 1)
 	[ -z "$1" ] && (pkg_remove wget wget-nossl >/dev/null 2>&1 ; pkg_install wget ; check_wgetcurl 1 ;return)
 	[ "$1" = "1" ] && (pkg_install curl ; check_wgetcurl 2 ; return)
@@ -92,6 +92,69 @@ check_latest_version(){
 			EXIT 0
 	fi
 }
+
+download_release_checksums() {
+	local checksum_file="/tmp/AdGuardHomeupdate/AdGuardHome_checksums.txt"
+	local base_url="https://github.com/AdguardTeam/AdGuardHome/releases/download/${latest_ver}"
+	local checksum_url
+
+	[ -s "$checksum_file" ] && return 0
+
+	checksum_url="$($downloader - https://api.github.com/repos/AdguardTeam/AdGuardHome/releases/tags/${latest_ver} 2>/dev/null \
+		| sed -n 's/.*"browser_download_url":[[:space:]]*"\([^"]*checksums\.txt\)".*/\1/p' \
+		| head -n 1)"
+
+	if [ -n "$checksum_url" ]; then
+		$downloader "$checksum_file" "$checksum_url" >/dev/null 2>&1 || return 1
+	else
+		$downloader "$checksum_file" "${base_url}/checksums.txt" >/dev/null 2>&1 || \
+		$downloader "$checksum_file" "${base_url}/sha256sums.txt" >/dev/null 2>&1 || \
+		$downloader "$checksum_file" "${base_url}/SHA256SUMS" >/dev/null 2>&1 || return 1
+	fi
+
+	grep -Eq '^[A-Fa-f0-9]{64}[[:space:]]+\*?[^[:space:]]+$' "$checksum_file"
+}
+
+verify_download_sha256() {
+	local filepath="$1"
+	local filename="$2"
+	local checksum_file="/tmp/AdGuardHomeupdate/AdGuardHome_checksums.txt"
+	local checksum_line
+
+	command -v sha256sum >/dev/null 2>&1 || {
+		echo "sha256sum is missing, skip update for safety."
+		EXIT 1
+	}
+
+	download_release_checksums || {
+		echo "Failed to download release SHA256 checksums."
+		EXIT 1
+	}
+
+	checksum_line="$(awk -v fname="$filename" '
+		{
+			sum=$1;
+			name=$2;
+			sub(/^\*/, "", name);
+			sub(/^\.\//, "", name);
+			if (name == fname && sum ~ /^[A-Fa-f0-9]{64}$/) {
+				print sum "  " fname;
+				exit
+			}
+		}
+	' "$checksum_file")"
+	[ -z "$checksum_line" ] && {
+		echo "No SHA256 entry found for ${filename}."
+		EXIT 1
+	}
+
+	echo "${checksum_line%  $filename}  $filepath" | sha256sum -c - >/dev/null 2>&1 || {
+		echo "SHA256 verification failed for ${filename}."
+		EXIT 1
+	}
+	echo "SHA256 verified: ${filename}."
+}
+
 doupx(){
 	detect_arch
 	case $Archt in
@@ -221,6 +284,7 @@ doupdate_core(){
 	done < "/tmp/run/AdHlinks.txt"
 	rm /tmp/run/AdHlinks.txt
 	[ -z "$success" ] && echo "no download success" && EXIT 1
+	verify_download_sha256 "/tmp/AdGuardHomeupdate/${link##*/}" "${link##*/}"
 	if [ "${link##*.}" == "gz" ]; then
 		tar -zxf "/tmp/AdGuardHomeupdate/${link##*/}" -C "/tmp/AdGuardHomeupdate/"
 		if [ ! -e "/tmp/AdGuardHomeupdate/AdGuardHome" ]; then
