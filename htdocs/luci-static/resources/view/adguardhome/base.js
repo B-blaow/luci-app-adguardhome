@@ -27,6 +27,21 @@ function redirectLabel(mode) {
 	}
 }
 
+function redirectModeMarkup(mode) {
+	var label = String.format('%h', redirectLabel(mode));
+
+	switch (mode) {
+	case 'redirect':
+		return '<span style="color:var(--success-color-high,#2e7d32)"><strong>' + label + '</strong></span>';
+	case 'dnsmasq-upstream':
+		return '<span style="color:var(--primary-color-high,#1565c0)"><strong>' + label + '</strong></span>';
+	case 'exchange':
+		return '<span style="color:var(--warning-color-high,#ed6c02)"><strong>' + label + '</strong></span>';
+	default:
+		return '<span style="color:var(--text-color-medium,#666)"><strong>' + label + '</strong></span>';
+	}
+}
+
 function loadBcrypt() {
 	if (window.TwinBcrypt)
 		return Promise.resolve();
@@ -53,6 +68,7 @@ return view.extend({
 		var version = ((data[2] && data[2].stdout) || '').trim() || _('Unknown');
 		var redirectMode = uci.get('AdGuardHome', 'AdGuardHome', 'redirect') || 'none';
 		var updatePolling = false;
+		var updateReloadScheduled = false;
 		var m = new form.Map('AdGuardHome', _('AdGuard Home'),
 			_('Free and open source, powerful network-wide ads & trackers blocking DNS server.'));
 		var s = m.section(form.TypedSection, 'AdGuardHome', _('Base Setting'));
@@ -64,7 +80,7 @@ return view.extend({
 		o.cfgvalue = function() {
 			var run = status.running ? '<span style="color:var(--success-color-high,#2e7d32)"><strong>' + _('RUNNING') + '</strong></span>' : '<span style="color:var(--error-color-high,#d32f2f)"><strong>' + _('NOT RUNNING') + '</strong></span>';
 			var redir = status.redirect ? '<span style="color:var(--success-color-high,#2e7d32)"><strong>' + _('Redirected') + '</strong></span>' : '<span style="color:var(--error-color-high,#d32f2f)"><strong>' + _('Not redirect') + '</strong></span>';
-			return 'AdGuardHome ' + run + ' ' + redir + ' | ' + _('Redirect mode') + ': ' + String.format('%h', redirectLabel(redirectMode));
+			return 'AdGuardHome ' + run + '  | ' + redirectModeMarkup(redirectMode);
 		};
 
 		o = s.option(form.Flag, 'enabled', _('Enable'));
@@ -73,7 +89,7 @@ return view.extend({
 		o = s.option(form.Value, 'httpport', _('Browser management port'));
 		o.datatype = 'port';
 		o.placeholder = '3000';
-		o.description = _('Open Web Interface');
+		o.description = _('Web Management Port');
 
 		o = s.option(form.Button, '_open_web', _('Open Web Interface'));
 		o.inputstyle = 'apply';
@@ -176,7 +192,7 @@ return view.extend({
 		o.value('cutquerylog', _('Auto tail querylog'));
 		o.value('cutruntimelog', _('Auto tail runtime log'));
 		o.value('autohost', _('Auto update ipv6 hosts and restart adh'));
-		//o.value('autogfw', _('Auto update gfwlist and restart adh'));
+		o.value('autogfw', _('Auto update gfwlist and restart adh'));
 
 		o = s.option(form.TextValue, 'downloadlinks', _('Download links for update'));
 		o.rows = 4;
@@ -252,12 +268,14 @@ return view.extend({
 				return callHelper('status').then(function(res) {
 					var st = parseJSON(res.stdout || '{}', {});
 					var el = node.querySelector('.cbi-value[data-name="_status"] .cbi-value-field');
+					var modeSelect = node.querySelector('.cbi-value[data-name="redirect"] select');
+					var currentRedirectMode = (modeSelect && modeSelect.value) ? modeSelect.value : redirectMode;
 					if (el)
 						el.innerHTML = 'AdGuardHome '
 							+ (st.running ? '<span style="color:var(--success-color-high,#2e7d32)"><strong>' + _('RUNNING') + '</strong></span>' : '<span style="color:var(--error-color-high,#d32f2f)"><strong>' + _('NOT RUNNING') + '</strong></span>')
 							+ ' '
 							+ (st.redirect ? '<span style="color:var(--success-color-high,#2e7d32)"><strong>' + _('Redirected') + '</strong></span>' : '<span style="color:var(--error-color-high,#d32f2f)"><strong>' + _('Not redirect') + '</strong></span>')
-							+ ' | ' + _('Redirect mode') + ': ' + String.format('%h', redirectLabel(redirectMode));
+							+ ' | ' + redirectModeMarkup(currentRedirectMode);
 					if (openWebBtn)
 						openWebBtn.disabled = !st.running;
 				});
@@ -280,8 +298,13 @@ return view.extend({
 							else
 								ta.value += out;
 						}
-						if (finished)
+						if (finished) {
 							updatePolling = false;
+							if (!updateReloadScheduled) {
+								updateReloadScheduled = true;
+								window.setTimeout(function() { window.location.reload(); }, 1200);
+							}
+						}
 					});
 			}, 2);
 
