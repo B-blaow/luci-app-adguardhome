@@ -192,7 +192,7 @@ return view.extend({
 		o.value('cutquerylog', _('Auto tail querylog'));
 		o.value('cutruntimelog', _('Auto tail runtime log'));
 		o.value('autohost', _('Auto update ipv6 hosts and restart adh'));
-		o.value('autogfw', _('Auto update gfwlist and restart adh'));
+		//o.value('autogfw', _('Auto update gfwlist and restart adh'));
 
 		o = s.option(form.TextValue, 'downloadlinks', _('Download links for update'));
 		o.rows = 4;
@@ -274,7 +274,7 @@ return view.extend({
 						el.innerHTML = 'AdGuardHome '
 							+ (st.running ? '<span style="color:var(--success-color-high,#2e7d32)"><strong>' + _('RUNNING') + '</strong></span>' : '<span style="color:var(--error-color-high,#d32f2f)"><strong>' + _('NOT RUNNING') + '</strong></span>')
 							+ ' '
-							+ (st.redirect ? '<span style="color:var(--success-color-high,#2e7d32)"><strong>' + _('Redirected') + '</strong></span>' : '<span style="color:var(--error-color-high,#d32f2f)"><strong>' + _('Not redirect') + '</strong></span>')
+							//+ (st.redirect ? '<span style="color:var(--success-color-high,#2e7d32)"><strong>' + _('Redirected') + '</strong></span>' : '<span style="color:var(--error-color-high,#d32f2f)"><strong>' + _('Not redirect') + '</strong></span>')
 							+ ' | ' + redirectModeMarkup(currentRedirectMode);
 					if (openWebBtn)
 						openWebBtn.disabled = !st.running;
