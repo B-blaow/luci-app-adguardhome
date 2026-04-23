@@ -11,6 +11,7 @@ function callHelper(action, args) {
 return view.extend({
 	render: function() {
 		var reverse = false;
+		var logPageToken = 'logjs_' + String(Date.now()) + '_' + String(Math.floor(Math.random() * 100000));
 		var ta = E('textarea', {
 			id: 'adh-log',
 			readonly: 'readonly',
@@ -52,7 +53,7 @@ return view.extend({
 		}, [ _('Download log') ]);
 
 		poll.add(function() {
-			return callHelper('get_log').then(function(res) {
+			return callHelper('get_log', [ logPageToken ]).then(function(res) {
 				if (res.stdout) {
 					if (reverse)
 						ta.value = res.stdout + ta.value;

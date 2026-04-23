@@ -52,7 +52,7 @@ detect_arch() {
 }
 
 check_wgetcurl(){
-	which curl && downloader="curl -fL -k --retry 2 --connect-timeout 20 -o" && return
+	which curl && downloader="curl -fL --retry 2 --connect-timeout 20 -o" && return
 	which wget-ssl && downloader="wget-ssl -t 2 -T 20 -O" && return
 	[ -z "$1" ] && pkg_update || (echo error package update && EXIT 1)
 	[ -z "$1" ] && (pkg_remove wget wget-nossl >/dev/null 2>&1 ; pkg_install wget ; check_wgetcurl 1 ;return)
@@ -69,7 +69,7 @@ check_latest_version(){
 	[ -z "$now_ver" ] && now_ver="not installed"
 	if [ "${latest_ver}"x != "${now_ver}"x ] || [ "$1" == "force" ]; then
 		echo -e "Local version: ${now_ver}, cloud version: ${latest_ver}." 
-		doupdate_core
+		doupdate_core "$1"
 	else
 			echo -e "\nLocal version: ${now_ver}, cloud version: ${latest_ver}." 
 			echo -e "You're already using the latest version." 
@@ -217,6 +217,7 @@ doupx(){
 	rm /tmp/upx-${upx_latest_ver}-${Arch}_linux.tar.xz
 }
 doupdate_core(){
+	local force_mode="$1"
 	echo -e "Updating core..." 
 	mkdir -p "/tmp/AdGuardHomeupdate"
 	rm -rf /tmp/AdGuardHomeupdate/* >/dev/null 2>&1
@@ -284,7 +285,11 @@ doupdate_core(){
 	done < "/tmp/run/AdHlinks.txt"
 	rm /tmp/run/AdHlinks.txt
 	[ -z "$success" ] && echo "no download success" && EXIT 1
-	verify_download_sha256 "/tmp/AdGuardHomeupdate/${link##*/}" "${link##*/}"
+	if [ "$force_mode" != "force" ]; then
+		verify_download_sha256 "/tmp/AdGuardHomeupdate/${link##*/}" "${link##*/}"
+	else
+		echo "Force mode: skip SHA256 verification."
+	fi
 	if [ "${link##*.}" == "gz" ]; then
 		tar -zxf "/tmp/AdGuardHomeupdate/${link##*/}" -C "/tmp/AdGuardHomeupdate/"
 		if [ ! -e "/tmp/AdGuardHomeupdate/AdGuardHome" ]; then

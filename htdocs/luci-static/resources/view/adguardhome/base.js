@@ -80,7 +80,7 @@ return view.extend({
 		o.cfgvalue = function() {
 			var run = status.running ? '<span style="color:var(--success-color-high,#2e7d32)"><strong>' + _('RUNNING') + '</strong></span>' : '<span style="color:var(--error-color-high,#d32f2f)"><strong>' + _('NOT RUNNING') + '</strong></span>';
 			var redir = status.redirect ? '<span style="color:var(--success-color-high,#2e7d32)"><strong>' + _('Redirected') + '</strong></span>' : '<span style="color:var(--error-color-high,#d32f2f)"><strong>' + _('Not redirect') + '</strong></span>';
-			return 'AdGuardHome ' + run + '  | ' + redirectModeMarkup(redirectMode);
+			return 'AdGuardHome ' + run + ' | ' + redirectModeMarkup(redirectMode);
 		};
 
 		o = s.option(form.Flag, 'enabled', _('Enable'));
@@ -289,23 +289,29 @@ return view.extend({
 					return Promise.resolve();
 				return callHelper('check_update').then(function(res) {
 					var out = res.stdout || '';
-					var finished = out.indexOf('\u0000') >= 0;
+					var marker = '__ADH_UPDATE_DONE__';
+					var finished = out.indexOf(marker) >= 0;
 						if (finished)
-							out = out.replace(/\u0000/g, '');
+							out = out.replace(new RegExp(marker, 'g'), '');
 						if (out) {
 							if (updateReverseTag && updateReverseTag.checked)
 								ta.value = out + ta.value;
 							else
 								ta.value += out;
 						}
-						if (finished) {
-							updatePolling = false;
-							if (!updateReloadScheduled) {
-								updateReloadScheduled = true;
-								window.setTimeout(function() { window.location.reload(); }, 1200);
+							if (finished) {
+								updatePolling = false;
+								if (ta && !out)
+									ta.value += '\n' + _('Update finished, refreshing page...');
+								if (!updateReloadScheduled) {
+									updateReloadScheduled = true;
+									window.setTimeout(function() { window.location.reload(); }, 1200);
+								}
 							}
-						}
-					});
+						}).catch(function(err) {
+							if (ta)
+								ta.value += '\n' + (err && err.message ? err.message : _('Failed to read update log'));
+						});
 			}, 2);
 
 			return node;

@@ -53,29 +53,40 @@ case "$ACTION" in
 			kill "$(pgrep -f /usr/share/AdGuardHome/update_core.sh)" >/dev/null 2>&1
 		fi
 		if [ ! -e /var/run/update_core ] || [ "$arg" = "force" ]; then
+			: > /tmp/AdGuardHome_update.log
+			touch /var/run/update_core
 			sh /usr/share/AdGuardHome/update_core.sh "$arg" >/tmp/AdGuardHome_update.log 2>&1 &
 		fi
 		;;
 	check_update)
 		fdp="$(cat /var/run/luciupdatelogpos 2>/dev/null)"
 		[ -z "$fdp" ] && fdp=0
+		size="$(wc -c /tmp/AdGuardHome_update.log 2>/dev/null | awk '{print $1}')"
+		[ -z "$size" ] && size=0
+		[ "$fdp" -gt "$size" ] && fdp=0
 		tail -c +$((fdp + 1)) /tmp/AdGuardHome_update.log 2>/dev/null
-		wc -c /tmp/AdGuardHome_update.log 2>/dev/null | awk '{print $1}' >/var/run/luciupdatelogpos
-		[ -e /var/run/update_core ] || printf '\0'
+		echo "$size" >/var/run/luciupdatelogpos
+		[ -e /var/run/update_core ] || echo '__ADH_UPDATE_DONE__'
 		;;
 	get_log)
 		logfile="$(uci -q get AdGuardHome.AdGuardHome.logfile)"
 		[ -z "$logfile" ] && exit 0
+		logkey="$(printf '%s' "$1" | tr -cd 'A-Za-z0-9_-')"
+		[ -z "$logkey" ] && logkey="default"
+		logpos_file="/var/run/luciruntimelogpos_${logkey}"
 		if [ "$logfile" = "syslog" ]; then
 			[ -e /var/run/AdGuardHomesyslog ] || (/usr/share/AdGuardHome/getsyslog.sh >/dev/null 2>&1 &)
 			logfile="/tmp/AdGuardHometmp.log"
 			echo 1 >/var/run/AdGuardHomesyslog
 		fi
 		[ -f "$logfile" ] || exit 0
-		fdp="$(cat /var/run/luciruntimelogpos 2>/dev/null)"
+		fdp="$(cat "$logpos_file" 2>/dev/null)"
 		[ -z "$fdp" ] && fdp=0
+		size="$(wc -c "$logfile" 2>/dev/null | awk '{print $1}')"
+		[ -z "$size" ] && size=0
+		[ "$fdp" -gt "$size" ] && fdp=0
 		tail -c +$((fdp + 1)) "$logfile" 2>/dev/null
-		wc -c "$logfile" 2>/dev/null | awk '{print $1}' >/var/run/luciruntimelogpos
+		echo "$size" >"$logpos_file"
 		;;
 	del_log)
 		logfile="$(uci -q get AdGuardHome.AdGuardHome.logfile)"

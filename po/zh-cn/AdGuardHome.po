@@ -248,8 +248,6 @@ msgid "WARNING!!! no bin found apply config will not be test"
 msgstr "警告！！！未找到执行文件，提交配置将不会进行校验"
 #unused
 
-
-
 msgid "Check Config"
 msgstr "检查配置"
 
@@ -271,7 +269,7 @@ msgid "Unknown"
 msgstr "未知"
 
 msgid "Update output log"
-msgstr "更新输出日志"
+msgstr "更新日志"
 
 msgid "Update log will appear here after clicking update."
 msgstr "点击更新后将在此处显示更新日志。"
@@ -280,7 +278,7 @@ msgid "Checking update log..."
 msgstr "正在检查更新日志..."
 
 msgid "Real-time log output refreshes every 5 seconds."
-msgstr "运行日志每5秒自动刷新。"
+msgstr "日志每5秒自动刷新。"
 
 msgid "YAML editor with syntax highlighting."
 msgstr "支持语法高亮的YAML编辑器。"
@@ -340,7 +338,10 @@ msgid "Password hash saved."
 msgstr "密码哈希已保存。"
 
 msgid "Reverse output"
-msgstr "逆序输出"
+msgstr "逆序"
 
 msgid "Download log"
 msgstr "下载日志"
+
+msgid "Web Management Port"
+msgstr "修改管理端口"
