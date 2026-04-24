@@ -80,13 +80,25 @@ case "$ACTION" in
 			echo 1 >/var/run/AdGuardHomesyslog
 		fi
 		[ -f "$logfile" ] || exit 0
-		fdp="$(cat "$logpos_file" 2>/dev/null)"
-		[ -z "$fdp" ] && fdp=0
+		state="$(cat "$logpos_file" 2>/dev/null)"
+		fdp="${state%%:*}"
+		rest="${state#*:}"
+		last_inode="${rest%%:*}"
+		last_mtime="${rest#*:}"
+		[ "$rest" = "$state" ] && last_inode="" && last_mtime=""
+		[ "$last_mtime" = "$rest" ] && last_mtime=""
+		case "$fdp" in
+			''|*[!0-9]*) fdp=0 ;;
+		esac
+		current_inode="$(ls -i "$logfile" 2>/dev/null | awk '{print $1}')"
+		current_mtime="$(date -r "$logfile" +%s 2>/dev/null)"
 		size="$(wc -c "$logfile" 2>/dev/null | awk '{print $1}')"
 		[ -z "$size" ] && size=0
 		[ "$fdp" -gt "$size" ] && fdp=0
+		[ -n "$last_inode" ] && [ -n "$current_inode" ] && [ "$last_inode" != "$current_inode" ] && fdp=0
+		[ -n "$last_mtime" ] && [ -n "$current_mtime" ] && [ "$last_mtime" != "$current_mtime" ] && [ "$size" -le "$fdp" ] && fdp=0
 		tail -c +$((fdp + 1)) "$logfile" 2>/dev/null
-		echo "$size" >"$logpos_file"
+		echo "$size:$current_inode:$current_mtime" >"$logpos_file"
 		;;
 	del_log)
 		logfile="$(uci -q get AdGuardHome.AdGuardHome.logfile)"

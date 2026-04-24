@@ -232,7 +232,7 @@ msgid "Please add log path in config to enable log"
 msgstr "请在设置里填写日志路径以启用日志"
 
 msgid "dellog"
-msgstr "删除日志"
+msgstr "清空日志"
 
 msgid "download log"
 msgstr "下载日志"
@@ -336,9 +336,6 @@ msgstr "请先计算哈希。"
 
 msgid "Password hash saved."
 msgstr "密码哈希已保存。"
-
-msgid "Reverse output"
-msgstr "逆序"
 
 msgid "Download log"
 msgstr "下载日志"
