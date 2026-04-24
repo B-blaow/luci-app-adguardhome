@@ -6,8 +6,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-adguardhome
-PKG_VERSION:=2.0
-PKG_RELEASE:=1
+PKG_VERSION:=2.1
+PKG_RELEASE:=2
 
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
 
@@ -53,7 +53,9 @@ endef
 
 define Package/$(PKG_NAME)/postinst
 #!/bin/sh
-	/etc/init.d/AdGuardHome enable >/dev/null 2>&1
+    [ -x /usr/libexec/AdGuardHome/luci-helper.sh ] || chmod 755 /usr/libexec/AdGuardHome/luci-helper.sh
+	
+    /etc/init.d/AdGuardHome enable >/dev/null 2>&1
 	enable=$(uci get AdGuardHome.AdGuardHome.enabled 2>/dev/null)
 	if [ "$enable" = "1" ]; then
 		/etc/init.d/AdGuardHome reload
