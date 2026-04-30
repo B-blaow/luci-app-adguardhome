@@ -342,3 +342,9 @@ msgstr "下载日志"
 
 msgid "Web Management Port"
 msgstr "修改管理端口"
+
+msgid "No logs"
+msgstr "无日志数据"
+
+msgid "No log file"
+msgstr "没有日志文件"

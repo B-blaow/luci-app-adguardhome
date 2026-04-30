@@ -120,7 +120,7 @@ return view.extend({
 		o.rawhtml = true;
 		o.cfgvalue = function() {
 			return '<div id="adh-update-log-wrap" style="display:none">'
-				+ '<label style="display:block;margin:0 0 6px 0;"><input id="adh-update-reverse" type="checkbox" /> ' + _('Reverse output') + '</label>'
+				+ '<label style="display:block;margin:0 0 6px 0;"><input id="adh-update-reverse" type="checkbox" /> ' + _('reverse') + '</label>'
 				+ '<textarea id="adh-update-log" readonly="readonly" style="width:100%;min-height:220px;background:var(--background-color-medium,#1e1e1e);color:var(--text-color-high,#f5f5f5);border:1px solid var(--border-color-medium,#666)"></textarea>'
 				+ '</div>';
 		};
