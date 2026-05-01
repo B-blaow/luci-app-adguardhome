@@ -149,8 +149,23 @@ return view.extend({
 		o = s.option(form.Value, 'logfile', _('Runtime log file'));
 		o = s.option(form.Flag, 'verbose', _('Verbose log'));
 
-		//o = s.option(form.Value, 'gfwupstream', _('Gfwlist upstream dns server'));
-		//o.placeholder = 'tcp://208.67.220.220:5353';
+		o = s.option(form.Flag, 'showgfwmore', _('Show GFW options in More options'));
+		o.default = '0';
+		o.rmempty = false;
+
+		o = s.option(form.Value, 'gfwupstream', _('Gfwlist upstream dns server'));
+		o.placeholder = 'tcp://208.67.220.220:5353';
+		o.depends('showgfwmore', '1');
+
+		o = s.option(form.DummyValue, '_gfwactions', _('GFW list actions'));
+		o.rawhtml = true;
+		o.depends('showgfwmore', '1');
+		o.cfgvalue = function() {
+			return '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'
+				+ '<button id="adh-gfwadd-btn" class="btn cbi-button cbi-button-action" type="button">' + _('Add gfwlist') + '</button>'
+				+ '<button id="adh-gfwdel-btn" class="btn cbi-button" type="button">' + _('Del gfwlist') + '</button>'
+				+ '</div>';
+		};
 
 		o = s.option(form.DummyValue, '_passmgr', _('Change browser management password'));
 		o.rawhtml = true;
@@ -192,20 +207,13 @@ return view.extend({
 		o.value('cutquerylog', _('Auto tail querylog'));
 		o.value('cutruntimelog', _('Auto tail runtime log'));
 		o.value('autohost', _('Auto update ipv6 hosts and restart adh'));
-		//o.value('autogfw', _('Auto update gfwlist and restart adh'));
+		o.value('autogfw', _('Auto update gfwlist and restart adh'));
 
 		o = s.option(form.TextValue, 'downloadlinks', _('Download links for update'));
 		o.rows = 4;
 		o.cfgvalue = function() { return fs.read_direct('/usr/share/AdGuardHome/links.txt', 'text')
 			.then(function(txt) { return txt || ''; }).catch(function() { return ''; }); };
 		o.write = function(_, val) { return fs.write('/usr/share/AdGuardHome/links.txt', (val || '').replace(/\r\n/g, '\n')); };
-
-		//var s2 = m.section(form.NamedSection, 'AdGuardHome', 'AdGuardHome', _('Actions'));
-		//s2.anonymous = true;
-		//var b = s2.option(form.Button, '_gfwadd', _('Add gfwlist'));
-		//b.onclick = ui.createHandlerFn(this, function() { return fs.exec('/bin/sh', [ '/usr/share/AdGuardHome/gfw2adg.sh' ]); });
-		//b = s2.option(form.Button, '_gfwdel', _('Del gfwlist'));
-		//b.onclick = ui.createHandlerFn(this, function() { return fs.exec('/bin/sh', [ '/usr/share/AdGuardHome/gfw2adg.sh', 'del' ]); });
 
 		return m.render().then(L.bind(function(node) {
 			var calcBtn = node.querySelector('#adh-calc-bcrypt');
@@ -214,6 +222,8 @@ return view.extend({
 			var updateBtn = node.querySelector('#adh-update-btn');
 			var forceBtn = node.querySelector('#adh-force-update-btn');
 			var updateReverseTag = node.querySelector('#adh-update-reverse');
+			var gfwAddBtn = node.querySelector('#adh-gfwadd-btn');
+			var gfwDelBtn = node.querySelector('#adh-gfwdel-btn');
 			var plainInput = node.querySelector('#adh-plainpass');
 			var hashInput = node.querySelector('#adh-hashpass');
 
@@ -233,6 +243,17 @@ return view.extend({
 				updateBtn.addEventListener('click', function() { startUpdate(false); });
 			if (forceBtn)
 				forceBtn.addEventListener('click', function() { startUpdate(true); });
+
+			if (gfwAddBtn)
+				gfwAddBtn.addEventListener('click', function() {
+					var upInput = node.querySelector('input[id$=".gfwupstream"]');
+					var upstream = upInput && upInput.value ? upInput.value.trim() : '';
+					if (upstream)
+						return fs.exec('/bin/sh', [ '/usr/share/AdGuardHome/gfw2adg.sh', 'add', upstream ]);
+					return fs.exec('/bin/sh', [ '/usr/share/AdGuardHome/gfw2adg.sh' ]);
+				});
+			if (gfwDelBtn)
+				gfwDelBtn.addEventListener('click', function() { fs.exec('/bin/sh', [ '/usr/share/AdGuardHome/gfw2adg.sh', 'del' ]); });
 
 			if (calcBtn && plainInput && hashInput) {
 				calcBtn.addEventListener('click', function() {
