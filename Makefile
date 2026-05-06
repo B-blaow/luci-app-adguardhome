@@ -47,29 +47,30 @@ define Package/$(PKG_NAME)/install
 	cp -pR ./htdocs/* $(1)/www/
 	$(INSTALL_DIR) $(1)/
 	cp -pR ./root/* $(1)/
+	$(INSTALL_DIR) $(1)/usr/libexec/AdGuardHome
+	$(INSTALL_BIN) ./root/usr/libexec/AdGuardHome/luci-helper.sh $(1)/usr/libexec/AdGuardHome/
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/i18n
 	po2lmo ./po/zh-cn/AdGuardHome.po $(1)/usr/lib/lua/luci/i18n/AdGuardHome.zh-cn.lmo
 endef
 
 define Package/$(PKG_NAME)/postinst
 #!/bin/sh
-    [ -x /usr/libexec/AdGuardHome/luci-helper.sh ] || chmod 755 /usr/libexec/AdGuardHome/luci-helper.sh
-	
-    /etc/init.d/AdGuardHome enable >/dev/null 2>&1
+	[ -x /usr/libexec/AdGuardHome/luci-helper.sh ] || chmod 755 /usr/libexec/AdGuardHome/luci-helper.sh
+	/etc/init.d/AdGuardHome enable >/dev/null 2>&1
 	enable=$(uci get AdGuardHome.AdGuardHome.enabled 2>/dev/null)
 	if [ "$enable" = "1" ]; then
 		/etc/init.d/AdGuardHome reload
 	fi
 	rm -f /tmp/luci-indexcache
-	 rm -f /tmp/luci-modulecache/*
+	rm -f /tmp/luci-modulecache/*
 exit 0
 endef
 
 define Package/$(PKG_NAME)/prerm
 #!/bin/sh
 if [ -z "$${IPKG_INSTROOT}" ]; then
-     /etc/init.d/AdGuardHome disable
-     /etc/init.d/AdGuardHome stop
+	/etc/init.d/AdGuardHome disable
+	/etc/init.d/AdGuardHome stop
 fi
 exit 0
 endef

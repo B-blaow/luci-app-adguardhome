@@ -180,6 +180,13 @@ return view.extend({
 		};
 		o.description = _('Use plain password, calculate Bcrypt hash, then save.');
 
+		o = s.option(form.Value, 'gfw_action_token', _('GFW action token'));
+		o.rmempty = true;
+
+		o = s.option(form.Value, 'hashpass', _('Browser password hash'));
+		o.password = true;
+		o.rmempty = true;
+
 		o = s.option(form.MultiValue, 'upprotect', _('Keep files when system upgrade'));
 		o.widget = 'checkbox';
 		o.value('$binpath', _('core bin'));
@@ -226,6 +233,23 @@ return view.extend({
 			var gfwDelBtn = node.querySelector('#adh-gfwdel-btn');
 			var plainInput = node.querySelector('#adh-plainpass');
 			var hashInput = node.querySelector('#adh-hashpass');
+			var hiddenRows = [
+				node.querySelector('.cbi-value[data-name="gfw_action_token"]'),
+				node.querySelector('.cbi-value[data-name="hashpass"]')
+			];
+			var markControlChanged = function(suffix, value) {
+				var input = node.querySelector('input[id$=".' + suffix + '"]');
+				uci.set('AdGuardHome', 'AdGuardHome', suffix, value);
+				if (input) {
+					input.value = value;
+					input.dispatchEvent(new Event('change', { bubbles: true }));
+				}
+			};
+
+			hiddenRows.forEach(function(row) {
+				if (row)
+					row.style.display = 'none';
+			});
 
 			if (openWebBtn)
 				openWebBtn.disabled = !status.running;
@@ -248,12 +272,25 @@ return view.extend({
 				gfwAddBtn.addEventListener('click', function() {
 					var upInput = node.querySelector('input[id$=".gfwupstream"]');
 					var upstream = upInput && upInput.value ? upInput.value.trim() : '';
-					if (upstream)
-						return fs.exec('/bin/sh', [ '/usr/share/AdGuardHome/gfw2adg.sh', 'add', upstream ]);
-					return fs.exec('/bin/sh', [ '/usr/share/AdGuardHome/gfw2adg.sh' ]);
+					var run = upstream
+						? fs.exec('/bin/sh', [ '/usr/share/AdGuardHome/gfw2adg.sh', 'add', upstream ])
+						: fs.exec('/bin/sh', [ '/usr/share/AdGuardHome/gfw2adg.sh' ]);
+					run.then(function() {
+						markControlChanged('gfw_action_token', String(Date.now()));
+						ui.addNotification(null, E('p', _('Added gfwlist. Click Save & Apply to reload service.')));
+					}).catch(function(err) {
+						ui.addNotification(null, E('p', err.message || _('Add gfwlist failed')), 'danger');
+					});
 				});
 			if (gfwDelBtn)
-				gfwDelBtn.addEventListener('click', function() { fs.exec('/bin/sh', [ '/usr/share/AdGuardHome/gfw2adg.sh', 'del' ]); });
+				gfwDelBtn.addEventListener('click', function() {
+					fs.exec('/bin/sh', [ '/usr/share/AdGuardHome/gfw2adg.sh', 'del' ]).then(function() {
+						markControlChanged('gfw_action_token', String(Date.now()));
+						ui.addNotification(null, E('p', _('Deleted gfwlist. Click Save & Apply to reload service.')));
+					}).catch(function(err) {
+						ui.addNotification(null, E('p', err.message || _('Delete gfwlist failed')), 'danger');
+					});
+				});
 
 			if (calcBtn && plainInput && hashInput) {
 				calcBtn.addEventListener('click', function() {
@@ -277,7 +314,8 @@ return view.extend({
 						return;
 					}
 					callHelper('set_hashpass', [ hashInput.value ]).then(function() {
-						ui.addNotification(null, E('p', _('Password hash saved.')));
+						markControlChanged('hashpass', hashInput.value);
+						ui.addNotification(null, E('p', _('Password hash saved. Click Save & Apply to reload service.')));
 						plainInput.value = '';
 					}).catch(function(err) {
 						ui.addNotification(null, E('p', err.message || _('Save failed')), 'danger');
